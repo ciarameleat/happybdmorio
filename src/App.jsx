@@ -154,6 +154,7 @@ const STATIC_BACKGROUNDS = [
   '/photos/morio.png',
   '/photos/bcg1.jpeg',
   '/flowers/tempachi.png',
+  '/flowers/cake.gif',
 ];
 
 const PRELOAD_IMAGES = [...STATIC_BACKGROUNDS, ...FLOWER_IMAGES];
