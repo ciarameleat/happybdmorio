@@ -997,7 +997,7 @@ const transition = useCallback((toScreen, opts = {}) => {
             </div>
             <div className="quiz-card" style={{ borderColor:'#9b59b6' }}>
               <p className="quiz-question">
-                <Typewriter text={"HOW MANY TIMES HAS ERGI DEACTIVATED SINCE YOU STARTED TALKING?"} speed={40} />
+                <Typewriter text={"HOW MANY TIMES HAS ERGI DEACTIVATED SINCE WE STARTED TALKING?"} speed={40} />
               </p>
             </div>
             <div className="quiz-buttons three-options">

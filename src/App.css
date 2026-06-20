@@ -1124,8 +1124,14 @@ clip-path: polygon(
 .success-subtitle {
   font-family: var(--font-soft);
   font-size: clamp(0.85rem, 2vw, 1.1rem);
-  color: #555;
+  color: #ffffff;
   font-weight: 700;
+}
+
+@media (min-width: 768px) {
+  .success-subtitle {
+    margin-top: 12px;
+  }
 }
 
 /* Screen flash effect */
