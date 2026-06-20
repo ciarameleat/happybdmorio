@@ -146,13 +146,11 @@ const STATIC_BACKGROUNDS = [
   '/photos/background_1.png',
   '/photos/background_2.png',
   '/photos/background_3.png',
-  '/photos/cover3.png',
   '/photos/cover8.png',
   '/photos/catw.png',
   '/photos/catzemer_red.png',
   '/photos/penguin-trip.gif',
   '/photos/morio.png',
-  '/photos/bcg1.jpeg',
   '/flowers/tempachi.png',
   '/flowers/cake.gif',
 ];
