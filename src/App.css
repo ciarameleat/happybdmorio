@@ -1112,10 +1112,12 @@ clip-path: polygon(
 
 .success-title {
   font-family: 'Pixelify Sans', var(--font-pixel);
-  font-size: clamp(2.2rem, 4.4vw, 4rem);   /* min 1.4rem (mobile floor), 4.4vw (scales with width), max 4rem (desktop ceiling) — raise the LAST number for bigger desktop text */
+  font-size: clamp(2.2rem, 4.4vw, 4rem);
   font-weight: 700;
-  color: var(--gold-dark);
-  text-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+  color: #ffffff;
+  text-shadow:
+    3px 3px 0 var(--pink-deep),
+    0 0 20px rgba(255,255,255,0.4);
   margin-bottom: 8px;
 }
 
@@ -1351,7 +1353,7 @@ clip-path: polygon(
     left: 21%;          /* was 50% */
     right: auto;
     transform: translateX(-50%);
-    bottom: 160px;
+    bottom: 145px;
   }
 
   .dialogue-box {
@@ -1401,7 +1403,7 @@ clip-path: polygon(
 }
 
 .bg-cover3 {
-  background-image: url('/photos/cover3.png');
+  background-image: url('/photos/cover8.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -1984,11 +1986,22 @@ clip-path: polygon(
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 5px;
 }
 
 .intro-start-btn {
-  margin-top: 0;
+  margin-top: 0px;
   margin-bottom: 0;
   align-self: center;
+}
+
+.wrong-penguin-img {
+  opacity: 0;
+  animation: penguinFadeIn 0.4s ease forwards;
+  animation-delay: 0.05s;
+}
+
+@keyframes penguinFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }

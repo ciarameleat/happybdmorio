@@ -2,6 +2,117 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './App.css';
 
 /* ============================================================
+   CHIPTUNE BIRTHDAY MELODY — Web Audio API, no file needed
+   ============================================================ */
+  let _audioCtx = null;
+  const getAudioCtx = () => {
+    if (!_audioCtx) {
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return _audioCtx;
+  };
+
+  const NOTE = {
+    C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00,
+    A4: 440.00, B4: 493.88, C5: 523.25,
+  };
+
+  const BIRTHDAY_MELODY = [
+    [NOTE.C4, 0.75], [NOTE.C4, 0.25], [NOTE.D4, 1], [NOTE.C4, 1],
+    [NOTE.F4, 1], [NOTE.E4, 2],
+    [NOTE.C4, 0.75], [NOTE.C4, 0.25], [NOTE.D4, 1], [NOTE.C4, 1],
+    [NOTE.G4, 1], [NOTE.F4, 2],
+    [NOTE.C4, 0.75], [NOTE.C4, 0.25], [NOTE.C5, 1], [NOTE.A4, 1],
+    [NOTE.F4, 1], [NOTE.E4, 1], [NOTE.D4, 2],
+    [NOTE.A4, 0.75], [NOTE.A4, 0.25], [NOTE.F4, 1], [NOTE.G4, 1], [NOTE.F4, 2],
+  ];
+
+  let _melodyStopFns = [];
+
+const playBirthdayMelody = ({ tempo = 105, volume = 0.18, loop = true } = {}) => {
+  const ctx = getAudioCtx();
+  if (ctx.state === 'suspended') ctx.resume();
+
+  const beatSeconds = 60 / tempo;
+  let stopped = false;
+  let activeOscillators = [];
+
+    // Master gain — lets us fade the whole melody out smoothly
+    const masterGain = ctx.createGain();
+    masterGain.gain.value = 1;
+    masterGain.connect(ctx.destination);
+
+    const scheduleSequence = (startTime) => {
+      let t = startTime;
+      BIRTHDAY_MELODY.forEach(([freq, beats]) => {
+        const noteDuration = beats * beatSeconds;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'square';
+        osc.frequency.value = freq;
+
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(volume, t + 0.02);
+        gain.gain.setValueAtTime(volume, t + noteDuration * 0.7);
+        gain.gain.linearRampToValueAtTime(0, t + noteDuration * 0.95);
+
+        osc.connect(gain);
+        gain.connect(masterGain);
+
+        osc.start(t);
+        osc.stop(t + noteDuration);
+
+        activeOscillators.push(osc);
+        t += noteDuration;
+      });
+      return t;
+    };
+
+    const totalDuration = BIRTHDAY_MELODY.reduce((sum, [, beats]) => sum + beats * beatSeconds, 0);
+
+    const runLoop = (startTime) => {
+      if (stopped) return;
+      scheduleSequence(startTime);
+      if (loop) {
+        setTimeout(() => {
+          if (!stopped) runLoop(ctx.currentTime + 0.05);
+        }, (totalDuration - 0.1) * 1000);
+      }
+    };
+
+    runLoop(ctx.currentTime + 0.05);
+
+    const stopFn = ({ fadeMs = 0 } = {}) => {
+      stopped = true;
+      if (fadeMs > 0) {
+        const now = ctx.currentTime;
+        masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+        masterGain.gain.linearRampToValueAtTime(0, now + fadeMs / 1000);
+        setTimeout(() => {
+          activeOscillators.forEach(osc => {
+            try { osc.stop(); } catch (e) {}
+          });
+          activeOscillators = [];
+        }, fadeMs);
+      } else {
+        activeOscillators.forEach(osc => {
+          try { osc.stop(); } catch (e) {}
+        });
+        activeOscillators = [];
+      }
+    };
+
+    _melodyStopFns.push(stopFn);
+    return stopFn;
+  };
+
+  const stopBirthdayMelody = (opts) => {
+    _melodyStopFns.forEach(fn => fn(opts));
+    _melodyStopFns = [];
+  };
+
+/* ============================================================
    FLOWER IMAGES
    ============================================================ */
 const FLOWER_IMAGES = [
@@ -41,6 +152,7 @@ const STATIC_BACKGROUNDS = [
   '/photos/catzemer_red.png',
   '/photos/penguin-trip.gif',
   '/photos/morio.png',
+  '/photos/bcg1.jpeg',
   '/flowers/tempachi.png',
 ];
 
@@ -156,7 +268,7 @@ const FloatingSparkles = ({ emojis = ['✨','⭐','💫'], count = 6 }) => {
     id: i,
     emoji: emojis[i % emojis.length],
     left: `${10 + (i / count) * 80}%`,
-    bottom: `${35 + Math.random() * 30}%`,
+    bottom: `${2 + Math.random() * 15}%`,
     delay: `${i * 0.4}s`,
     duration: `${2 + Math.random() * 2}s`,
   }));
@@ -186,52 +298,58 @@ const FloatingSparkles = ({ emojis = ['✨','⭐','💫'], count = 6 }) => {
 /* ============================================================
    DATE BUTTONS — yes grows, no runs away
    ============================================================ */
-const DateButtons = ({ onYes }) => {
-  const [noCount, setNoCount] = useState(0);
-  const [noPos, setNoPos] = useState({ x: 0, y: 0 });
+  const DateButtons = ({ onYes, onNo, onYesClick }) => {
+    const [noCount, setNoCount] = useState(0);
+    const [noPos, setNoPos] = useState({ x: 0, y: 0 });
 
-  const noLabels = ['NO', 'NO...', 'YOU WISH', 'TWIN STOP...', 'BOLLL', 'FINE... YES YOU\'RE MY FAVORITE'];
-  const yesScale = 1 + noCount * 0.3;
+    const noLabels = ['NO', 'NO...', 'YOU WISH', 'TWIN STOP...', 'BOLLL', 'FINE... YES YOU\'RE MY FAVORITE'];
+    const yesScale = 1 + noCount * 0.3;
 
-  const handleNo = () => {
-    const newCount = Math.min(noCount + 1, noLabels.length - 1);
-    setNoCount(newCount);
-    setNoPos({
-      x: (Math.random() - 0.5) * 300,
-      y: (Math.random() - 0.5) * 200,
-    });
+    const handleNo = () => {
+      if (onNo) onNo();
+      const newCount = Math.min(noCount + 1, noLabels.length - 1);
+      setNoCount(newCount);
+      setNoPos({
+        x: (Math.random() - 0.5) * 300,
+        y: (Math.random() - 0.5) * 200,
+      });
+    };
+
+    const handleYes = () => {
+      if (onYesClick) onYesClick();
+      onYes();
+    };
+
+    return (
+      <div className="date-buttons-row">
+        <button
+          className="game-btn primary"
+          onClick={handleYes}
+          style={{
+            transform: `scale(${yesScale})`,
+            transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            zIndex: 2,
+          }}
+        >
+          YES 
+        </button>
+
+        <button
+          className="game-btn"
+          onClick={handleNo}
+          style={{
+            transform: `translate(${noPos.x}px, ${noPos.y}px)`,
+            transition: 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            zIndex: 2,
+            opacity: noCount >= noLabels.length - 1 ? 0.4 : 1,
+            pointerEvents: noCount >= noLabels.length - 1 ? 'none' : 'all',
+          }}
+        >
+          {noLabels[noCount]}
+        </button>
+      </div>
+    );
   };
-
-  return (
-    <div className="date-buttons-row">
-      <button
-        className="game-btn primary"
-        onClick={onYes}
-        style={{
-          transform: `scale(${yesScale})`,
-          transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-          zIndex: 2,
-        }}
-      >
-        YES 💖
-      </button>
-
-      <button
-        className="game-btn"
-        onClick={handleNo}
-        style={{
-          transform: `translate(${noPos.x}px, ${noPos.y}px)`,
-          transition: 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-          zIndex: 2,
-          opacity: noCount >= noLabels.length - 1 ? 0.4 : 1,
-          pointerEvents: noCount >= noLabels.length - 1 ? 'none' : 'all',
-        }}
-      >
-        {noLabels[noCount]}
-      </button>
-    </div>
-  );
-};
 
 /* ============================================================
    CHARACTER SPRITE
@@ -263,14 +381,18 @@ const IntroStartButton = ({ text, onNext }) => {
 /* ============================================================
    DIALOGUE BOX
    ============================================================ */
-const DialogueBox = ({ speaker, text, speed, onNext, showArrow = true, onAllDone, children }) => {
-  const { displayed, done } = useTypewriter(text || '', speed || 38);
+  const DialogueBox = ({ speaker, text, speed, onNext, showArrow = true, onAllDone, children }) => {
+    const { displayed, done } = useTypewriter(text || '', speed || 38);
+    const firedRef = useRef(false);
 
-  useEffect(() => {
-    if (done && onAllDone) onAllDone();
-  }, [done, onAllDone]);
+    useEffect(() => {
+      if (done && onAllDone && !firedRef.current) {
+        firedRef.current = true;
+        onAllDone();
+      }
+    }, [done, onAllDone]);
 
-  return (
+    return (
     <div className="dialogue-box">
       {speaker && <div className="speaker-plate">{speaker}</div>}
       <div className="dialogue-text-inner">
@@ -359,7 +481,7 @@ const StarField = () => {
 /* ============================================================
    FLOWER CAKE SCREEN — Phase 1 of flower gift
    ============================================================ */
-const FlowerCakeScreen = ({ onDone }) => {
+  const FlowerCakeScreen = ({ onDone, onBlow }) => {
   const [blowing, setBlowing] = useState(false);
   const [showSparkles, setShowSparkles] = useState(false);
 
@@ -368,6 +490,7 @@ const FlowerCakeScreen = ({ onDone }) => {
     if (blowing) return;
     setBlowing(true);
     setShowSparkles(true);
+    if (onBlow) onBlow();
     setTimeout(() => onDone(), 2000);
   };
 
@@ -661,7 +784,7 @@ const BG_MAP = {
   [SCREENS.INTRO]:         'bg-meadow',
   [SCREENS.WRONG]:         'bg-wrong',
   [SCREENS.SUCCESS_1]:     'bg-success',
-  [SCREENS.SUCCESS_2]:     'bg-cover3',
+  [SCREENS.SUCCESS_2]:     'bg-success',
   [SCREENS.ALL_CORRECT]:   'bg-meadow',
   [SCREENS.FLOWER_CAKE]:   'bg-flower-cake',
   [SCREENS.FLOWER_BLOOM]:  'bg-flower-bloom',
@@ -673,7 +796,7 @@ const BG_MAP = {
    ============================================================ */
 export default function App() {
   const [screen, setScreen]           = useState(SCREENS.START);
- // const [screen, setScreen] = useState(SCREENS.FLOWER_CAKE);
+ // const [screen, setScreen] = useState(SCREENS.ALL_CORRECT);
   const [gateOpen, setGateOpen]       = useState(false);
   const [contentFade, setContentFade] = useState(false);
   const [lastQuiz, setLastQuiz]       = useState('');
@@ -684,6 +807,36 @@ export default function App() {
   const { loadedCount, total, ready: assetsReady } = usePreloadImages(PRELOAD_IMAGES);
 
   const bgmRef = useRef(null);
+  const startSfxRef = useRef(null);
+  const correctSfxRef = useRef(null);
+  const incorrectSfxRef = useRef(null);
+
+  const playSfx = (ref) => {
+    if (ref.current) {
+      ref.current.currentTime = 0;
+      ref.current.play().catch(() => {});
+    }
+  };
+
+  const fadeOutAudio = (ref, duration = 1200) => {
+    const audio = ref.current;
+    if (!audio) return;
+    const steps = 24;
+    const stepTime = duration / steps;
+    const startVolume = audio.volume || 1;
+    let count = 0;
+
+    const fade = setInterval(() => {
+      count++;
+      audio.volume = Math.max(0, startVolume * (1 - count / steps));
+      if (count >= steps) {
+        clearInterval(fade);
+        audio.pause();
+        audio.currentTime = 0;
+        audio.volume = startVolume;
+      }
+    }, stepTime);
+  };
 
   /* ---- Transition helper ---- */
 const transition = useCallback((toScreen, opts = {}) => {
@@ -710,6 +863,7 @@ const transition = useCallback((toScreen, opts = {}) => {
   /* ---- Start game ---- */
   const handleStart = () => {
     if (bgmRef.current) bgmRef.current.play().catch(() => {});
+    playSfx(startSfxRef);
     setContentFade(true);
     setGateOpen(true);
     setTimeout(() => {
@@ -721,6 +875,7 @@ const transition = useCallback((toScreen, opts = {}) => {
 
   /* ---- Correct answer ---- */
   const handleCorrect = (nextScreen) => {
+    setTimeout(() => playSfx(correctSfxRef), 400);
     setFlash(true);
     setTimeout(() => setFlash(false), 10000);
     setSpriteReact(true);
@@ -731,6 +886,7 @@ const transition = useCallback((toScreen, opts = {}) => {
 
   /* ---- Wrong answer ---- */
   const handleWrong = (quizScreen) => {
+    setTimeout(() => playSfx(incorrectSfxRef), 400);
     setSpriteReact(true);
     setTimeout(() => setSpriteReact(false), 500);
     transition(SCREENS.WRONG, { quiz: quizScreen });
@@ -740,7 +896,9 @@ const transition = useCallback((toScreen, opts = {}) => {
 
   return (
     <div className={`game-window ${bgClass}`}>
-      <audio ref={bgmRef} loop src="/bg-music.mp3" />
+      <audio ref={startSfxRef} src="/sound/start.mp3" />
+      <audio ref={correctSfxRef} src="/sound/correct.mp3" />
+      <audio ref={incorrectSfxRef} src="/sound/incorrect.mp3" />
       <div className="scanlines" />
       <ScreenFlash active={flash} />
       <ConfettiBurst active={confetti} />
@@ -888,7 +1046,11 @@ const transition = useCallback((toScreen, opts = {}) => {
               </p>
             </div>
             {/* YES leads to the all-correct celebration, then the flower gift sequence */}
-            <DateButtons onYes={() => transition(SCREENS.ALL_CORRECT)} />
+            <DateButtons
+              onYesClick={() => playSfx(correctSfxRef)}
+              onNo={() => playSfx(incorrectSfxRef)}
+              onYes={() => transition(SCREENS.ALL_CORRECT)}
+            />
           </div>
         </div>
       )}
@@ -896,11 +1058,12 @@ const transition = useCallback((toScreen, opts = {}) => {
       {/* ── WRONG ── */}
       {screen === SCREENS.WRONG && (
         <div className="scene active scene-enter">
-          <div style={{ position:'absolute', inset:0, backgroundImage:'url(/photos/cover3.png)', backgroundSize:'cover', backgroundPosition:'center', zIndex:0 }} />
+          <div style={{ position:'absolute', inset:0, backgroundImage:'url(/photos/cover8.png)', backgroundSize:'cover', backgroundPosition:'center', zIndex:0 }} />
           <div className="wrong-scene" style={{ position:'relative', zIndex:1 }}>
             <img
               src="/photos/penguin-trip.gif"
               alt="Penguin"
+              className="wrong-penguin-img"
               style={{ width:'clamp(160px,30vw,280px)', imageRendering:'pixelated', marginBottom:'12px', display:'block' }}
             />
             <button className="game-btn" onClick={() => transition(lastQuiz)}>
@@ -917,12 +1080,22 @@ const transition = useCallback((toScreen, opts = {}) => {
           <PixelClouds />
           <div className="dialogue-scene">
             <div className="pop-in">
-              <DialogueBox
-                text={"CONGRATULATIONS, MORIO!\n\nYOU ANSWERED EVERY\nQUESTION CORRECTLY!\n\nNOW... CLOSE YOUR EYES\nAND MAKE A WISH"}
-                speed={50}
-                showArrow={false}
-                onAllDone={() => transition(SCREENS.FLOWER_CAKE, { delay: 2000 })}
-              />
+            <DialogueBox
+              text={"CONGRATULATIONS, MORIO!\n\nYOU ANSWERED EVERY\nQUESTION CORRECTLY!\n\nNOW... CLOSE YOUR EYES\nAND MAKE A WISH"}
+              speed={50}
+              showArrow={false}
+              onAllDone={() => {
+                if (bgmRef.current) {
+                  bgmRef.current.pause();
+                  bgmRef.current.currentTime = 0;
+                }
+                const cakeScreenDelay = 2000 + 450; // matches transition's delay + fadeOutMs
+                setTimeout(() => {
+                  playBirthdayMelody({ tempo: 105, volume: 0.18, loop: true });
+                }, cakeScreenDelay);
+                transition(SCREENS.FLOWER_CAKE, { delay: 2000 });
+              }}
+            />
             </div>
           </div>
           <CharacterSprite reacting={spriteReact} />
@@ -931,7 +1104,10 @@ const transition = useCallback((toScreen, opts = {}) => {
 
       {/* ── FLOWER CAKE ── */}
       {screen === SCREENS.FLOWER_CAKE && (
-        <FlowerCakeScreen onDone={() => setScreen(SCREENS.FLOWER_BLOOM)} />
+        <FlowerCakeScreen
+          onDone={() => setScreen(SCREENS.FLOWER_BLOOM)}
+          onBlow={() => stopBirthdayMelody()}
+        />
       )}
 
       {/* ── FLOWER BLOOM ── */}
