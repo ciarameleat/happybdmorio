@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './App.css';
 
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 /* ============================================================
    CHIPTUNE BIRTHDAY MELODY — Web Audio API, no file needed
    ============================================================ */
@@ -897,6 +898,7 @@ const transition = useCallback((toScreen, opts = {}) => {
   return (
     <div className={`game-window ${bgClass}`}>
       <Analytics />
+      <SpeedInsights />
       <audio ref={startSfxRef} src="/sound/start.mp3" />
       <audio ref={correctSfxRef} src="/sound/correct.mp3" />
       <audio ref={incorrectSfxRef} src="/sound/incorrect.mp3" />
